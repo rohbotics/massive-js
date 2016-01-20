@@ -11,21 +11,6 @@ describe('Queryables', function () {
     });
   });
 
-  describe('Simple table queries with args', function () {
-    it('returns product 1 with 1 as only arg', function (done) {
-      db.products.find(1, function(err,res){
-        assert.equal(res.id, 1);
-        done();
-      });
-    });
-    it('returns first record with findOne no args', function (done) {
-      db.products.findOne(1, function(err,res){
-        assert.equal(res.id, 1);
-        done();
-      });
-    });
-  });
-
   describe('Simple table queries without args', function () {
     it('returns all records on find with no args', function (done) {
       db.products.find(function(err,res){
@@ -37,6 +22,42 @@ describe('Queryables', function () {
       db.products.findOne(function(err,res){
         assert.equal(res.id, 1);
         done();
+      });
+    });
+  });
+
+  describe('Simple table queries by primary key', function () {
+    it('finds by a numeric key and returns a result object', function (done) {
+      db.products.find(1, function(err, res) {
+        assert.equal(res.id, 1);
+        done();
+      });
+    });
+
+    it('findOnes by a numeric key and returns a result object', function (done) {
+      db.products.findOne(1, function(err, res) {
+        assert.equal(res.id, 1);
+        done();
+      });
+    });
+
+    it('finds by a string/uuid key and returns a result object', function (done) {
+      db.orders.findOne(function (err, order) {
+        assert.notStrictEqual(order, undefined);
+        db.orders.find(order.id, function(err, res) {
+          assert.equal(res.id, order.id);
+          done();
+        });
+      });
+    });
+
+    it('findOnes by a string/uuid key and returns a result object', function (done) {
+      db.orders.findOne(function (err, order) {
+        assert.notStrictEqual(order, undefined);
+        db.orders.findOne(order.id, function(err, res) {
+          assert.equal(res.id, order.id);
+          done();
+        });
       });
     });
   });
@@ -125,7 +146,7 @@ describe('Queryables', function () {
     });
     it('returns products by finding a null field', function (done) {
       db.products.find({"tags": null}, function(err,res){
-        assert.equal(res.length, 4);
+        assert.equal(res.length, 1);
         assert.equal(res[0].id, 1);
         done();
       });
@@ -179,6 +200,67 @@ describe('Queryables', function () {
       db.products.findOne({price: 35.00, 'specs->>weight': 30}, function(err, product) {
         assert.equal(product.id, 3);
         assert.equal(product.specs.weight, 30);
+        done();
+      });
+    });
+  });
+
+  describe('Array operations', function () {
+    it('filters by array fields containing a value', function (done) {
+      db.products.find({'tags @>': ['tag2']}, function (err, res) {
+        assert.equal(res.length, 2);
+        assert.equal(res[0].id, 2);
+        assert.equal(res[1].id, 3);
+        done();
+      });
+    });
+
+    it('filters by array fields contained in a value', function (done) {
+      db.products.find({'tags <@': ['tag2', 'tag3', 'tag4']}, function (err, res) {
+        assert.equal(res.length, 1);
+        assert.equal(res[0].id, 3);
+        done();
+      });
+    });
+
+    it('filters by array fields overlapping a value', function (done) {
+      db.products.find({'tags &&': ['tag3', 'tag4', 'tag5']}, function (err, res) {
+        assert.equal(res.length, 2);
+        assert.equal(res[0].id, 3);
+        assert.equal(res[1].id, 4);
+        done();
+      });
+    });
+
+    it('allows falling back to a postgres-formatted array literal', function (done) {
+      db.products.find({'tags @>': '{tag2}'}, function (err, res) {
+        assert.equal(res.length, 2);
+        assert.equal(res[0].id, 2);
+        assert.equal(res[1].id, 3);
+        done();
+      });
+    });
+
+    it('handles apostrophes in array values', function (done) {
+      db.products.find({'tags @>': ['tag\'quote']}, function (err, res) {
+        assert.equal(res.length, 1);
+        assert.equal(res[0].id, 4);
+        done();
+      });
+    });
+
+    it('handles commas in array values', function (done) {
+      db.products.find({'tags @>': ['tag,comma']}, function (err, res) {
+        assert.equal(res.length, 1);
+        assert.equal(res[0].id, 4);
+        done();
+      });
+    });
+
+    it('handles braces in array values', function (done) {
+      db.products.find({'tags @>': ['tag{brace}']}, function (err, res) {
+        assert.equal(res.length, 1);
+        assert.equal(res[0].id, 4);
         done();
       });
     });
@@ -373,6 +455,12 @@ describe('Queryables', function () {
         assert.equal(res[0].id, 4);
         assert.equal(res[1].id, 2);
         assert.equal(res[2].id, 1);
+        done();
+      });
+    });
+    it('works with materialized views', function (done) {
+      db.mv_orders.find(function(err,res) {
+        assert.equal(res.length, 3);
         done();
       });
     });
